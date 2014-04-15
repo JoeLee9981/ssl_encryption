@@ -1,0 +1,2 @@
+This is a message that I am going to send from Bob to Alice.
+If you are reading this, then it means the transfer was successful.
