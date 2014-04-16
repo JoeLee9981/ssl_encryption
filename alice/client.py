@@ -109,17 +109,49 @@ class alice(object):
             print "---------Certificate Authority public key:---------"
             print self.cert_pub.exportKey()
             print ''
+
+def extract_ip(arg):
+    if ':' in arg:
+        split = arg.split(':')
+        if len(split) > 2:
+            print "Invalid IP / port combination - use format: (XXX.XXX.XXX.XXX:Port)"
+            exit()
+        else:
+            return split[0], int(split[1])
+    else:
+        return arg, 12333
+
+def parse_opt(argv):
+    debug = False
+    ip = None
+    port = None
+    for i in range(len(argv)):
+        if argv[i - 1].upper() == "-IP":
+            continue
+        if argv[i].upper() == "-IV":
+            debug = True
+            continue
+        if argv[i].upper() == "-IP":
+            ip, port = extract_ip(argv[i+1])
+            continue
+        print "Invalid Argument was entered, should be -IP ip:port(or ip alone), or -IV"
+        exit()
+    return debug, ip, port
         
 def main(argv):
     debug = False
+    ip = None
+    port = None
     if len(argv) > 0:
-        if argv[0] == '-iv':
-            debug = True
-        else:
-            print 'Unexpected argument, should be -iv'
-            exit()
-    c = alice('localhost', 12333, debug)
-    c.start_client()
+        debug, ip, port = parse_opt(argv)
+    if ip == None:    
+        ip = 'localhost'
+        port = 12333
+    try:
+        c = alice(ip, port, debug)
+        c.start_client()
+    except:
+        print "An error occurred connecting to the server - shutting down"
 
 if __name__ == '__main__':
     main(sys.argv[1:])
