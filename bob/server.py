@@ -23,10 +23,11 @@ class bob(object):
         self._get_keys()
 
     def start_server(self):
-        print("Socket: ", self.server.fileno())
+        print "\n***STARTING SERVER***"
+        print "Socket: ", self.server.fileno()
         self.server.bind((self.addr, self.port))
         print("Socket Bound: ", self.server.getsockname())
-        print("---------------------------------------------")
+        print "---------------------------------------------\n"
         self.server.listen(100)
         input = [self.server]
         
@@ -38,10 +39,11 @@ class bob(object):
             for s in inputready:
                 if s == self.server:
                         #new connection from server was found
-                        print('Handle server socket')
+                        print 'Handle server socket'
                         connectionSocket, addr = self.server.accept()
-                        print("Accepted connection from:", connectionSocket.getpeername())
+                        print "Accepted connection from:", connectionSocket.getpeername()
                         input.append(connectionSocket)
+                        print ''
                 else:
                         message = ''
                         while 1:
@@ -49,55 +51,79 @@ class bob(object):
                             if '\r\n' in message:
                                 break
                             
+                        try: 
+                            print "***HELLO RECEIVED - BEGINNING HANDSHAKE***\n"
+                            print message
+                            print ''
+                            self.send_pub(s)
+                            message = ''
+                            while 1:
+                                data = s.recv(1024)
+                                if len(data) == 0:
+                                    break
+                                message += data
+                            print "***ENCRYPTED MESSAGE RECEIVED***\n"
+                            self.decode_message(s, message)
+                            s.close()
+                            print "Closing socket\n"
+                            input.remove(s)
+                            print "We are done - waiting for next connection\n"
+                        except Exception as ex:
+                            print "------ FAILED ------"
+                            print ex.args
+                            print "Closing socket\n"
+                            s.close()
+                            input.remove(s)
                         
-                        print "---RECEIVED:"
-                        print message
-                        self.send_pub(s)
-                        message = ''
-                        while 1:
-                            message += s.recv(1024)
-                            if '\r\n' in message:
-                                break
-                        self.decode_message(message)
-                        s.close()
-                        input.remove(s)
-                        
-                        print "---SOCKET CLOSED"
-                        
-    def decode_message(self, message):
+    def decode_message(self, sock, message):
         #strip off \r\n
         message = message[:-2]
-        print message
-        print
-        #print len(message)
         #strip off encoded symmetric key
         enc_symm = message[:128]
         #strip the IV
-        #iv = message[128:136]
-        iv = '01234567'
-        print "iv", iv, "END"
-        print len(iv)
-        #print len(enc_symm)
+        iv = message[128:136]
+        #strip remainder of the message
         message = message[136:]
-        #print len(message)
-        #print len(message) + len(enc_symm) + len(iv)
         #decode symm key
         self.symm_key = decrypt_RSA(self.kb_priv, enc_symm)
+        if self.debug_enabled:
+            print "***DECRYPTING SYMMETRIC KEY***\n"
+            print "Encoded key:", enc_symm.encode('hex'), '\n'
+            print "IV:", iv.encode('hex'), '\n'
+            print "Decoded key:", self.symm_key.encode('hex'), '\n'
+            print "Encoded message:"
+            print message.encode('hex'), '\n'
         #decode message
-        message = decrypt_3DES(self.symm_key, iv, message)
-        sig = message[:128]
-        message = message[128:]
+        try:
+            self.decoder = get_3des_decrypter(self.symm_key, iv)
+            message = self.decoder.decrypt(message)
+        except:
+            raise Exception("An error occurred during decryption - Keys may be corrupted")
         #strip signed hash
+        sig = message[:128]
         #strip message
+        message = message[128:]
         #verify signature
-        print message
+        if verify_sign(message, sig, self.ka_pub):
+            print message
+        else:
+            sock.close()
+            raise Exception("Message signature failed using Alice's public key, closing connnection")
         
     def send_pub(self, sock):
+        if self.debug_enabled:
+            print "Sending public key\n"
         h = hash(self.kb_pub.exportKey())
         sig = sign(h, self.kc_priv)
+        if self.debug_enabled:
+            print "Signed hash of the public key:"
+            print sig.encode('hex'), '\n'
         to_send = self.kb_pub.exportKey() + sig
         sock.send(to_send)
         sock.send('\r\n')
+        if self.debug_enabled:
+            print "Key and signature sent on socket:"
+            print to_send, '\n'
  
     def _get_keys(self):
         self.kb_pub = load_key('bob.pub')
@@ -105,6 +131,19 @@ class bob(object):
         self.kc_pub = load_key('cert.pub')
         self.kc_priv = load_key('cert.priv')
         self.ka_pub = load_key('alice.pub')
+        if self.debug_enabled:
+            print "***KEYS LOADED FROM FILE***"
+            print "---------Bob's public key:---------"
+            print self.kb_pub.exportKey()
+            print "---------Bob's private key:---------"
+            print self.kb_priv.exportKey()
+            print "---------Certificate Authority's public key:---------"
+            print self.kc_pub.exportKey()
+            print "---------Certificate Authority's private key:---------"
+            print self.kc_priv.exportKey()
+            print "---------Alice's public key:---------"
+            print self.ka_pub.exportKey()
+            print ''
                         
 def main(argv):
     debug = False

@@ -19,9 +19,9 @@ def encrypt_3DES(key, iv, m):
     des3 = DES3.new(key, DES3.MODE_CFB, iv)
     return des3.encrypt(m)
 
-def decrypt_3DES(key, iv, c):
-    des3 = DES3.new(key, DES3.MODE_CFB, iv)
-    return des3.decrypt(c)
+def get_3des_decrypter(key, iv):
+    return DES3.new(key, DES3.MODE_CFB, iv)
+
 
 def encrypt_RSA(pub_key, m, h):
     rsa_cipher = pkcs1_cipher.new(pub_key)

@@ -1,2 +1,2 @@
-This is a message that I am going to send from Bob to Alice.
-If you are reading this, then it means the transfer was successful.
+This is a message to send from Alice to bob. This message was encrypted by Alice using a symmetric key transfered by RSA encryption.
+If you are reading this, that means the message was successful, Yay!
