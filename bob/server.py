@@ -48,19 +48,53 @@ class bob(object):
                             message += s.recv(1024)
                             if '\r\n' in message:
                                 break
+                            
                         
                         print "---RECEIVED:"
                         print message
                         self.send_pub(s)
+                        message = ''
+                        while 1:
+                            message += s.recv(1024)
+                            if '\r\n' in message:
+                                break
+                        self.decode_message(message)
                         s.close()
                         input.remove(s)
                         
                         print "---SOCKET CLOSED"
-    
+                        
+    def decode_message(self, message):
+        #strip off \r\n
+        message = message[:-2]
+        print message
+        print
+        #print len(message)
+        #strip off encoded symmetric key
+        enc_symm = message[:128]
+        #strip the IV
+        #iv = message[128:136]
+        iv = '01234567'
+        print "iv", iv, "END"
+        print len(iv)
+        #print len(enc_symm)
+        message = message[136:]
+        #print len(message)
+        #print len(message) + len(enc_symm) + len(iv)
+        #decode symm key
+        self.symm_key = decrypt_RSA(self.kb_priv, enc_symm)
+        #decode message
+        message = decrypt_3DES(self.symm_key, iv, message)
+        sig = message[:128]
+        message = message[128:]
+        #strip signed hash
+        #strip message
+        #verify signature
+        print message
+        
     def send_pub(self, sock):
         h = hash(self.kb_pub.exportKey())
         sig = sign(h, self.kc_priv)
-        #print sig
         to_send = self.kb_pub.exportKey() + sig
         sock.send(to_send)
         sock.send('\r\n')
